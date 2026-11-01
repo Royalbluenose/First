@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f6f5f0">
+  <title>Crumb — ideas &amp; improvements</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #292b23;
+      --muted: #77796f;
+      --line: #e7e5dc;
+      --paper: #fffefa;
+      --canvas: #f6f5f0;
+      --green: #526d57;
+      --green-dark: #3e5843;
+      --danger: #a34a3d;
+      --shadow: 0 14px 38px rgba(50, 48, 38, .06);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
+    .shell { width: min(720px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-mark {
+      display: grid; width: 35px; height: 35px; place-items: center;
+      border-radius: 12px; background: var(--green); color: white; font-size: 18px;
+    }
+    a { color: var(--green-dark); font-size: 12px; font-weight: 650; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card { padding: 22px; border: 1px solid var(--line); border-radius: 17px; background: var(--paper); box-shadow: var(--shadow); }
+    h1 { margin: 0 0 17px; font-family: Georgia, "Times New Roman", serif; font-size: 25px; font-weight: 500; letter-spacing: -.035em; }
+    label { display: block; margin-bottom: 6px; color: #65675e; font-size: 12px; font-weight: 650; }
+    textarea {
+      display: block; width: 100%; min-height: 115px; padding: 10px 12px;
+      border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--ink); resize: vertical;
+    }
+    textarea::placeholder { color: #a2a39b; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .button {
+      min-height: 37px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 9px;
+      background: white; color: var(--ink); font-size: 12px; font-weight: 650;
+    }
+    .button:hover { background: #faf9f5; }
+    .button-primary { border-color: var(--green); background: var(--green); color: white; }
+    .button-primary:hover { border-color: var(--green-dark); background: var(--green-dark); }
+    .button-danger { color: var(--danger); }
+    .saved-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 23px 0 9px; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .idea-list { display: grid; gap: 8px; }
+    .idea-card { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+    .idea-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .idea-date { margin-top: 7px; color: var(--muted); font-size: 11px; }
+    .idea-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .button-small { min-height: 30px; padding: 5px 9px; font-size: 11px; }
+    .empty-state, .notice { padding: 14px 12px; border-radius: 10px; font-size: 12px; text-align: center; }
+    .empty-state { border: 1px dashed #deddd3; color: var(--muted); }
+    .notice { margin-bottom: 13px; border: 1px solid #ead2ae; background: #fff8ec; color: #76521f; text-align: left; }
+    .notice[hidden] { display: none; }
+    @media (max-width: 480px) {
+      .shell { width: calc(100% - 24px); padding-top: 20px; }
+      .card { padding: 16px; }
+      .topbar { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">C</span> Crumb</div>
+      <a href="Food Cost.html">Back to Crumb</a>
+    </header>
+
+    <section class="card" aria-labelledby="pageTitle">
+      <h1 id="pageTitle">Ideas &amp; improvements</h1>
+      <div class="notice" id="notice" role="status" hidden></div>
+      <form id="ideaForm">
+        <label for="ideaInput">An idea for Crumb</label>
+        <textarea id="ideaInput" maxlength="2000" placeholder="Write an idea or improvement to come back to later…" required></textarea>
+        <div class="form-actions">
+          <button class="button" id="cancelEdit" type="button" hidden>Cancel edit</button>
+          <button class="button button-primary" id="saveIdea" type="submit">Save idea</button>
+        </div>
+      </form>
+
+      <div class="saved-heading"><span>Your ideas</span><span id="ideaCount">0</span></div>
+      <div class="idea-list" id="ideaList" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+      const STORAGE_KEY = "crumb-ideas-v1";
+      const form = document.getElementById("ideaForm");
+      const input = document.getElementById("ideaInput");
+      const list = document.getElementById("ideaList");
+      const count = document.getElementById("ideaCount");
+      const notice = document.getElementById("notice");
+      const saveButton = document.getElementById("saveIdea");
+      const cancelButton = document.getElementById("cancelEdit");
+      let ideas = [];
+      let editingId = null;
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, character => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        })[character]);
+      }
+
+      function showNotice(message) {
+        notice.textContent = message;
+        notice.hidden = false;
+      }
+
+      function persist() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(ideas));
+          return true;
+        } catch (error) {
+          showNotice(`Could not save your ideas on this device: ${error.message}`);
+          return false;
+        }
+      }
+
+      function render() {
+        count.textContent = String(ideas.length);
+        if (!ideas.length) {
+          list.innerHTML = '<div class="empty-state">Your ideas will be saved here on this device.</div>';
+          return;
+        }
+        list.innerHTML = [...ideas].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(idea => `
+          <article class="idea-card">
+            <div class="idea-text">${escapeHtml(idea.text)}</div>
+            <div class="idea-date">Updated ${escapeHtml(new Date(idea.updatedAt).toLocaleString())}</div>
+            <div class="idea-actions">
+              <button class="button button-small" type="button" data-edit="${escapeHtml(idea.id)}">Edit</button>
+              <button class="button button-small button-danger" type="button" data-delete="${escapeHtml(idea.id)}">Delete</button>
+            </div>
+          </article>`).join("");
+      }
+
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (!Array.isArray(parsed) || parsed.some(idea =>
+            !idea || typeof idea.id !== "string" || typeof idea.text !== "string" ||
+            typeof idea.updatedAt !== "string")) {
+            throw new Error("Saved ideas have an unexpected format.");
+          }
+          ideas = parsed;
+        }
+      } catch (error) {
+        showNotice(`Could not load saved ideas: ${error.message}`);
+      }
+
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) {
+          input.focus();
+          return;
+        }
+        const now = new Date().toISOString();
+        if (editingId) {
+          const idea = ideas.find(item => item.id === editingId);
+          if (!idea) {
+            showNotice("That idea could not be found. Please refresh the page and try again.");
+            return;
+          }
+          const previousText = idea.text;
+          const previousUpdatedAt = idea.updatedAt;
+          idea.text = text;
+          idea.updatedAt = now;
+          if (!persist()) {
+            idea.text = previousText;
+            idea.updatedAt = previousUpdatedAt;
+            return;
+          }
+        } else {
+          ideas.push({ id: crypto.randomUUID(), text, createdAt: now, updatedAt: now });
+          if (!persist()) {
+            ideas.pop();
+            return;
+          }
+        }
+        editingId = null;
+        input.value = "";
+        saveButton.textContent = "Save idea";
+        cancelButton.hidden = true;
+        render();
+      });
+
+      cancelButton.addEventListener("click", () => {
+        editingId = null;
+        input.value = "";
+        saveButton.textContent = "Save idea";
+        cancelButton.hidden = true;
+      });
+
+      list.addEventListener("click", event => {
+        const editButton = event.target.closest("[data-edit]");
+        const deleteButton = event.target.closest("[data-delete]");
+        if (editButton) {
+          const idea = ideas.find(item => item.id === editButton.dataset.edit);
+          if (!idea) {
+            showNotice("That idea could not be found. Please refresh the page and try again.");
+            return;
+          }
+          editingId = idea.id;
+          input.value = idea.text;
+          saveButton.textContent = "Save changes";
+          cancelButton.hidden = false;
+          input.focus();
+        } else if (deleteButton) {
+          const index = ideas.findIndex(item => item.id === deleteButton.dataset.delete);
+          if (index === -1) {
+            showNotice("That idea could not be found. Please refresh the page and try again.");
+            return;
+          }
+          const [removed] = ideas.splice(index, 1);
+          if (!persist()) {
+            ideas.splice(index, 0, removed);
+            return;
+          }
+          if (editingId === removed.id) {
+            editingId = null;
+            input.value = "";
+            saveButton.textContent = "Save idea";
+            cancelButton.hidden = true;
+          }
+          render();
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
